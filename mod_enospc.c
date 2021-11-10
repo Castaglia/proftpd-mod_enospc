@@ -1,7 +1,6 @@
 /*
  * ProFTPD: mod_enospc -- a module for simulating ENOSPC issues
- *
- * Copyright (c) 2008 TJ Saunders
+ * Copyright (c) 2008-2021 TJ Saunders
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,8 +23,6 @@
  *
  * This is mod_enospc, contrib software for proftpd 1.3.x and above.
  * For more information contact TJ Saunders <tj@castaglia.org>.
- *
- * $Id: mod_fsync.c,v 1.3 2005/11/19 22:34:41 tj Exp tj $
  */
 
 #include "conf.h"
@@ -59,7 +56,6 @@ static int enospc_close(pr_fh_t *fh, int fd) {
 }
 
 static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t size) {
-
   /* Silently consume the bytes. */
 
   enospc_written += size;
@@ -71,21 +67,22 @@ static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t size) {
 
 /* usage: NoSpaceEngine on|off */
 MODRET set_enospcengine(cmd_rec *cmd) {
-  int bool = -1;
+  int engine = -1;
   config_rec *c;
 
   CHECK_ARGS(cmd, 1);
   CHECK_CONF(cmd, CONF_ROOT);
 
-  bool = get_boolean(cmd, 1);
-  if (bool == -1)
+  engine = get_boolean(cmd, 1);
+  if (engine == -1) {
     CONF_ERROR(cmd, "expected Boolean parameter");
+  }
 
   c = add_config_param(cmd->argv[0], 1, NULL);
   c->argv[0] = pcalloc(c->pool, sizeof(int));
-  *((int *) c->argv[0]) = bool;
+  *((int *) c->argv[0]) = engine;
 
-  return HANDLED(cmd);
+  return PR_HANDLED(cmd);
 }
 
 /* usage: NoSpaceThreshold size */
@@ -113,7 +110,7 @@ MODRET set_enospcthreshold(cmd_rec *cmd) {
   c->argv[0] = pcalloc(c->pool, sizeof(off_t));
   *((off_t *) c->argv[0]) = threshold;
 
-  return HANDLED(cmd);
+  return PR_HANDLED(cmd);
 }
 
 /* Event handlers
@@ -134,15 +131,16 @@ static void enospc_postparse_ev(const void *event_data, void *user_data) {
   int engine = FALSE;
 
   c = find_config(main_server->conf, CONF_PARAM, "NoSpaceEngine", FALSE);
-  if (c)
+  if (c != NULL) {
     engine = *((int *) c->argv[0]);
+  }
 
-  if (!engine)
+  if (engine == FALSE) {
     return;
+  }
 
   c = find_config(main_server->conf, CONF_PARAM, "NoSpaceThreshold", FALSE);
-  if (!c) {
-
+  if (c == NULL) {
     /* This is a required directive. */
     pr_log_debug(DEBUG1, MOD_ENOSPC_VERSION
       ": missing required ENOSPCThreshold directive, disabling module");
@@ -153,7 +151,7 @@ static void enospc_postparse_ev(const void *event_data, void *user_data) {
 
   /* Register our custom filesystem. */
   fs = pr_register_fs(permanent_pool, "enospc", "/");
-  if (!fs) {
+  if (fs == NULL) {
     return;
   }
 
