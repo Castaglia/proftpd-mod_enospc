@@ -1,6 +1,6 @@
 /*
  * ProFTPD: mod_enospc -- a module for simulating ENOSPC issues
- * Copyright (c) 2008-2021 TJ Saunders
+ * Copyright (c) 2008-2022 TJ Saunders
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 #include "conf.h"
 #include "privs.h"
 
-#define MOD_ENOSPC_VERSION		"mod_enospc/0.2"
+#define MOD_ENOSPC_VERSION		"mod_enospc/0.3"
 
 /* Make sure the version of proftpd is as necessary. */
 #if PROFTPD_VERSION_NUMBER < 0x0001030001
@@ -56,9 +56,16 @@ static int enospc_close(pr_fh_t *fh, int fd) {
 }
 
 static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t size) {
-  /* Silently consume the bytes. */
-
   enospc_written += size;
+
+  if (enospc_threshold > 0 &&
+      enospc_written > enospc_threshold) {
+    pr_log_debug(DEBUG0, MOD_ENOSPC_VERSION ": writing '%s' at size %" PR_LU
+      ", returning ENOSPC", fh->fh_path, (pr_off_t) enospc_written);
+    errno = ENOSPC;
+    return -1;
+  }
+
   return size;
 }
 
@@ -118,10 +125,12 @@ MODRET set_enospcthreshold(cmd_rec *cmd) {
 
 #if defined(PR_SHARED_MODULE)
 static void enospc_mod_unload_ev(const void *event_data, void *user_data) {
-  if (strcmp("mod_enospc.c", (const char *) event_data) == 0) {
-    (void) pr_unmount_fs("/", "enospc");
-    pr_event_unregister(&enospc_module, NULL, NULL);
+  if (strcmp("mod_enospc.c", (const char *) event_data) != 0) {
+    return;
   }
+
+  (void) pr_unmount_fs("/", "enospc");
+  pr_event_unregister(&enospc_module, NULL, NULL);
 }
 #endif /* PR_SHARED_MODULE */
 
@@ -140,14 +149,9 @@ static void enospc_postparse_ev(const void *event_data, void *user_data) {
   }
 
   c = find_config(main_server->conf, CONF_PARAM, "NoSpaceThreshold", FALSE);
-  if (c == NULL) {
-    /* This is a required directive. */
-    pr_log_debug(DEBUG1, MOD_ENOSPC_VERSION
-      ": missing required ENOSPCThreshold directive, disabling module");
-    return;
+  if (c != NULL) {
+    enospc_threshold = *((off_t *) c->argv[0]);
   }
-
-  enospc_threshold = *((off_t *) c->argv[0]);
 
   /* Register our custom filesystem. */
   fs = pr_register_fs(permanent_pool, "enospc", "/");
