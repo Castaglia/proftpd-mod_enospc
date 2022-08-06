@@ -62,6 +62,26 @@ static int enospc_mkdir(pr_fs_t *fs, const char *path, mode_t mode) {
   return -1;
 }
 
+static ssize_t enospc_pwrite(pr_fh_t *fh, int fd, const void *buf, size_t bufsz,
+    off_t offset) {
+  enospc_written += bufsz;
+
+  if (enospc_threshold > 0 &&
+      enospc_written > enospc_threshold) {
+    pr_log_debug(DEBUG0, MOD_ENOSPC_VERSION ": pwriting '%s' at size %" PR_LU
+      ", returning ENOSPC", fh->fh_path, (pr_off_t) enospc_written);
+    errno = ENOSPC;
+    return -1;
+  }
+
+#if defined(HAVE_PWRITE)
+  return pwrite(fd, buf, bufsz, offset);
+#else
+  errno = ENOSYS;
+  return -1;
+#endif /* HAVE_PWRITE */
+}
+
 static int enospc_rename(pr_fs_t *fs, const char *src_path,
     const char *dst_path) {
   pr_log_debug(DEBUG0, MOD_ENOSPC_VERSION
@@ -70,8 +90,8 @@ static int enospc_rename(pr_fs_t *fs, const char *src_path,
   return -1;
 }
 
-static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t size) {
-  enospc_written += size;
+static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t bufsz) {
+  enospc_written += bufsz;
 
   if (enospc_threshold > 0 &&
       enospc_written > enospc_threshold) {
@@ -81,7 +101,7 @@ static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t size) {
     return -1;
   }
 
-  return size;
+  return write(fd, buf, bufsz);
 }
 
 /* Configuration handlers
@@ -177,6 +197,7 @@ static void enospc_postparse_ev(const void *event_data, void *user_data) {
   /* Add our custom FSIO handlers. */
   fs->close = enospc_close;
   fs->mkdir = enospc_mkdir;
+  fs->pwrite = enospc_pwrite;
   fs->rename = enospc_rename;
   fs->write = enospc_write;
 

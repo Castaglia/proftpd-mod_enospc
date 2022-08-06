@@ -64,9 +64,13 @@ jobs:
           # for unit tests
           apk add check check-dev subunit subunit-dev
 
+          # for OpenSSL support
+          apk add openssl openssl-dev
+
           # for debugging
           clang --version
           gcc --version
+          openssl version -a
 
       - name: Install RPM packages
         if: ${{ matrix.container == 'almalinux:8' }}
@@ -78,18 +82,27 @@ jobs:
           # for unit tests
           yum install -y check-devel https://cbs.centos.org/kojifiles/packages/subunit/1.4.0/1.el8/x86_64/subunit-1.4.0-1.el8.x86_64.rpm https://cbs.centos.org/kojifiles/packages/subunit/1.4.0/1.el8/x86_64/subunit-devel-1.4.0-1.el8.x86_64.rpm
 
+          # for OpenSSL support
+          yum install -y openssl openssl-devel
+
           # for debugging
           clang --version
           gcc --version
+          openssl version -a
 
       - name: Install Ubuntu packages
         if: ${{ matrix.container == 'ubuntu:18.04' }}
         run: |
           apt-get update -qq
+
           # for builds
           apt-get install -y clang gcc make
+
           # for unit tests
           apt-get install -y check libsubunit-dev
+
+          # for OpenSSL support
+          apt-get install -y libssl-dev
 
           # for integration/regression test
           apt-get install -y \
@@ -117,6 +130,7 @@ jobs:
           # for debugging
           clang --version
           gcc --version
+          openssl version -a
 
       - name: Prepare code coverage
         if: ${{ matrix.container == 'ubuntu:18.04' }}
@@ -128,7 +142,7 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           cd proftpd
-          ./configure LIBS="-lm -lsubunit -lrt -pthread" --enable-devel=coverage --enable-tests --with-modules=mod_enospc
+          ./configure LIBS="-lm -lsubunit -lrt -pthread" --enable-devel=coverage --enable-tests --with-modules=mod_enospc:mod_sftp
           make
 
       - name: Install as static module
@@ -151,7 +165,7 @@ jobs:
         run: |
           cd proftpd
           make clean
-          ./configure LIBS="-lm -lsubunit -lrt -pthread" --enable-devel --enable-dso --with-shared=mod_enospc
+          ./configure LIBS="-lm -lsubunit -lrt -pthread" --enable-devel --enable-dso --with-shared=mod_enospc:mod_sftp
           make
 
       - name: Install as shared module
