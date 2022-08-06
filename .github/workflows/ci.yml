@@ -92,11 +92,28 @@ jobs:
           apt-get install -y check libsubunit-dev
 
           # for integration/regression test
+          apt-get install -y \
+            libdata-dumper-simple-perl \
+            libdatetime-perl \
+            libfile-copy-recursive-perl \
+            libfile-path-tiny-perl \
+            libfile-spec-native-perl \
+            libnet-inet6glue-perl \
+            libnet-ssh2-perl \
+            libnet-ssleay-perl \
+            libnet-telnet-perl \
+            libposix-2008-perl \
+            libtest-unit-perl \
+            libtime-hr-perl \
+            libwww-perl
+
           # for test code coverage
           apt-get install -y lcov ruby
           gem install coveralls-lcov
+
           # for HTML validation
           apt-get install -y tidy
+
           # for debugging
           clang --version
           gcc --version
@@ -119,6 +136,15 @@ jobs:
           cd proftpd
           make install
 
+      - name: Run integration tests
+        if: ${{ matrix.compiler == 'gcc' && matrix.container == 'ubuntu:18.04' }}
+        env:
+          PROFTPD_TEST_BIN: /usr/local/sbin/proftpd
+          PROFTPD_TEST_DIR: ${{ github.workspace }}/proftpd
+        run: |
+          cd proftpd-mod_enospc
+          perl tests.pl
+
       - name: Build as shared module
         env:
           CC: ${{ matrix.compiler }}
@@ -132,3 +158,9 @@ jobs:
         run: |
           cd proftpd
           make install
+
+      - name: Check HTML docs
+        run: |
+          cd proftpd-mod_enospc
+          echo "Processing mod_enospc.html"
+          tidy -errors -omit -q mod_enospc.html | exit 0

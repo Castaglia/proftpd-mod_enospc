@@ -1,0 +1,40 @@
+Will/should mod_explain make use of the raw system calls for discovering the
+details of the error, or should/will it use the FSIO APIs as well?  Hmm...
+
+Could make similar other small modules for testing, for use in _e.g._
+mod_explain:
+
+  mod_eacces
+  mod_eagain
+  mod_ebadf
+  mod_edquot (EDQUOT, Disc quota exceeded)
+  mod_eexist
+  mod_efbig
+  mod_eio
+  mod_enfile (EMFILE, ENFILE)
+  mod_enodev (ENODEV, Operation not supported by device)
+  mod_enoent
+  mod_enomem
+  mod_enotempty (rmdir)
+  mod_emlink (EMLINK, ELOOP, Too many links)
+  mod_eopnotsupp
+  mod_eperm
+  mod_erofs
+  mod_etxtbusy (open(2) wants to write to an executable that is currently being executed)
+
+Are these generalizable/parameterizable enough, to be made into a single
+fault injection module, mod_mkerrno/mod_fault?  Would need way to say:
+
+  inject this error into these operations when X
+
+Similarly, using NetIO, is it possible to simulate these network errors?
+
+  EADDRINUSE
+  EADDRNOTAVAIL
+  ENETDOWN
+  ENETUNREACH
+  ENETRESET
+  ECONNABORTED
+  ECONNRESET
+  ENOTCONN
+  ECONNREFUSED
