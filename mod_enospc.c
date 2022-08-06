@@ -62,6 +62,14 @@ static int enospc_mkdir(pr_fs_t *fs, const char *path, mode_t mode) {
   return -1;
 }
 
+static int enospc_rename(pr_fs_t *fs, const char *src_path,
+    const char *dst_path) {
+  pr_log_debug(DEBUG0, MOD_ENOSPC_VERSION
+    ": rename '%s' to '%s', returning ENOSPC", src_path, dst_path);
+  errno = ENOSPC;
+  return -1;
+}
+
 static int enospc_write(pr_fh_t *fh, int fd, const char *buf, size_t size) {
   enospc_written += size;
 
@@ -169,9 +177,8 @@ static void enospc_postparse_ev(const void *event_data, void *user_data) {
   /* Add our custom FSIO handlers. */
   fs->close = enospc_close;
   fs->mkdir = enospc_mkdir;
+  fs->rename = enospc_rename;
   fs->write = enospc_write;
-
-  /* TODO: Add rename(2). */
 
   return;
 }
